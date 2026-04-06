@@ -1,56 +1,40 @@
 import { test, expect } from '@playwright/test';
 
-test('Test Scroll Menu - Human Version', async ({ page }) => {
-    test.setTimeout(240000); // เพิ่มเวลาเป็น 4 นาทีสำหรับรูปเยอะๆ
+test('Fix Grey Sidebar and Full Page Screenshot', async ({ page }) => {
+    test.setTimeout(180000);
 
-    await page.setViewportSize({ width: 1280, height: 1000 });
+    // 1. ตั้ง Viewport ให้กว้างมาตรฐาน (เช่น 1920) เพื่อลดโอกาสเกิดแถบข้าง
+    await page.setViewportSize({ width: 1920, height: 1080 });
+
     await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
 
-    console.log('Starting Human-like scroll...');
-
-    // 1. ค่อยๆ ไถหน้าจอลงแบบ Random จังหวะ (เหมือนคนเลื่อนดูเมนูจริงๆ)
-    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
-    let currentPos = 0;
-    
-    while (currentPos < bodyHeight) {
-        // แรนดอมระยะเลื่อน 300 - 600px เพื่อให้ระบบ Lazy Load ตื่นตัว
-        const step = Math.floor(Math.random() * (600 - 300 + 1) + 300);
-        currentPos += step;
-        
-        await page.mouse.wheel(0, step);
-        
-        // แรนดอมเวลารอ 0.5 - 1.2 วินาที
-        const waitTime = Math.floor(Math.random() * (1200 - 500 + 1) + 500);
-        await page.waitForTimeout(waitTime);
-        
-        // อัปเดตความสูงเผื่อของโหลดเพิ่ม
-        const dynamicHeight = await page.evaluate(() => document.body.scrollHeight);
-        if (currentPos > dynamicHeight) break;
+    // 2. ขั้นตอนการ Scroll (ใช้แบบที่เราคุยกันว่าสำเร็จ)
+    console.log('Scrolling to trigger images...');
+    for (let i = 0; i < 15; i++) {
+        await page.mouse.wheel(0, 1000);
+        await page.waitForTimeout(800);
     }
 
-    // 2. บังคับโหลดภาพที่อาจตกหล่นด้วยการสั่ง Scroll ทีละกล่อง
-    console.log('Verifying all product cards...');
-    const cards = page.locator('.product-item, .card, img[loading="lazy"]');
-    const count = await cards.count();
+    // 3. --- ไม้ตายแก้แถบสีเทา: บังคับให้บอทคำนวณขนาดหน้าจอใหม่ ---
+    console.log('Resizing viewport to match content...');
+    const width = 1920;
+    const height = await page.evaluate(() => {
+        return Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight
+        );
+    });
     
-    // สุ่มเช็กภาพเป็นระยะๆ เพื่อประหยัดเวลาแต่ภาพมาครบ
-    for (let i = 0; i < count; i += 3) {
-        await cards.nth(i).scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
-        await page.waitForTimeout(100);
-    }
+    // ปรับขนาดหน้าจอให้เท่ากับความสูงจริงของหน้าเว็บทั้งหมดก่อนถ่าย
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(1000); // รอให้ระบบ UI ปรับตัวตามขนาดใหม่
 
-    // 3. ทริคสำคัญ: เลื่อนขึ้นไปนิดนึงแล้วลงไปใหม่ (สะกิด UI)
-    await page.mouse.wheel(0, -500);
-    await page.waitForTimeout(500);
-    await page.mouse.wheel(0, 500);
+    // 4. ถ่ายรูปหน้าจอ (ตอนนี้ไม่ต้องใช้ fullPage: true แล้ว เพราะเราขยาย Viewport คลุมทั้งหน้าไปแล้ว)
+    const screenshotPath = `test-results/starbucks-full-clean.png`;
+    await page.screenshot({ 
+        path: screenshotPath, 
+        fullPage: false // ใช้ false เพราะเราตั้ง height ไว้ครอบคลุมแล้ว
+    });
 
-    // 4. รอ Network และภาพนิ่งจริงๆ
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(4000); 
-
-    // 5. ถ่ายรูปหน้าจอ
-    const screenshotPath = `test-results/starbucks-final-success.png`;
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    
-    console.log(`✅ Completed! Images should be fully loaded now.`);
+    console.log(`✅ Success! Screenshot is full and clean at: ${screenshotPath}`);
 });
