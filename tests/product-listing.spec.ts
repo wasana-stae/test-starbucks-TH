@@ -1,40 +1,59 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-test('Fix Grey Sidebar and Full Page Screenshot', async ({ page }) => {
-    test.setTimeout(180000);
+test('Test Starbucks Menu - Full Clear Version', async ({ page }) => {
+    // 1. เพิ่มเวลา Timeout ให้เหลือเฟือ
+    test.setTimeout(240000);
 
-    // 1. ตั้ง Viewport ให้กว้างมาตรฐาน (เช่น 1920) เพื่อลดโอกาสเกิดแถบข้าง
+    // 2. บังคับขนาดหน้าจอมาตรฐาน 1920x1080 (Desktop Full HD)
+    // วิธีนี้จะแก้ปัญหา "แถบสีเทาด้านข้าง" เพราะบอทจะเปิดหน้ากว้างสุด
     await page.setViewportSize({ width: 1920, height: 1080 });
 
+    // 3. ไปที่หน้าเมนู
     await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
+    console.log('Page loaded. Starting smart scroll...');
 
-    // 2. ขั้นตอนการ Scroll (ใช้แบบที่เราคุยกันว่าสำเร็จ)
-    console.log('Scrolling to trigger images...');
-    for (let i = 0; i < 15; i++) {
-        await page.mouse.wheel(0, 1000);
-        await page.waitForTimeout(800);
+    // 4. ฟังก์ชันการเลื่อนที่ถูกต้องของคุณ (ปรับให้นิ่งขึ้น)
+    async function smartScroll(page: Page) {
+        const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
+        let currentPos = 0;
+        const step = 600; // เลื่อนทีละ 600px
+
+        while (currentPos < bodyHeight) {
+            currentPos += step;
+            await page.mouse.wheel(0, step); // ใช้ mouse wheel เพื่อความสมูท
+            
+            // **จุดสำคัญ:** รอ 1.5 วินาทีเพื่อให้ระบบ Lazy Load เปลี่ยนกล่องเทาเป็นรูป
+            await page.waitForTimeout(1500); 
+
+            // เทคนิคพิเศษ: เลื่อนขึ้นนิดนึงแล้วลงใหม่ เพื่อ "สะกิด" ให้รูปที่ค้างอยู่โหลด
+            await page.mouse.wheel(0, -100);
+            await page.waitForTimeout(100);
+            await page.mouse.wheel(0, 100);
+        }
     }
 
-    // 3. --- ไม้ตายแก้แถบสีเทา: บังคับให้บอทคำนวณขนาดหน้าจอใหม่ ---
-    console.log('Resizing viewport to match content...');
-    const width = 1920;
-    const height = await page.evaluate(() => {
-        return Math.max(
-            document.body.scrollHeight,
-            document.documentElement.scrollHeight
-        );
-    });
-    
-    // ปรับขนาดหน้าจอให้เท่ากับความสูงจริงของหน้าเว็บทั้งหมดก่อนถ่าย
-    await page.setViewportSize({ width, height });
-    await page.waitForTimeout(1000); // รอให้ระบบ UI ปรับตัวตามขนาดใหม่
+    await smartScroll(page);
 
-    // 4. ถ่ายรูปหน้าจอ (ตอนนี้ไม่ต้องใช้ fullPage: true แล้ว เพราะเราขยาย Viewport คลุมทั้งหน้าไปแล้ว)
-    const screenshotPath = `test-results/starbucks-full-clean.png`;
+    // 5. เก็บตก: บังคับให้ Browser เข้าใจว่า "เห็นรูปครบแล้ว"
+    console.log('Final verification for images...');
+    const images = page.locator('main img');
+    const count = await images.count();
+    
+    // สะกิดรูปภาพท้ายหน้าจออีกครั้ง
+    for (let i = Math.max(0, count - 10); i < count; i++) {
+        await images.nth(i).scrollIntoViewIfNeeded().catch(() => {});
+    }
+
+    // 6. รอให้นิ่งสนิทจริงๆ
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(4000); 
+
+    // 7. ถ่ายรูปหน้าจอ (Full Page)
+    const screenshotPath = `test-results/starbucks-final-perfect.png`;
     await page.screenshot({ 
         path: screenshotPath, 
-        fullPage: false // ใช้ false เพราะเราตั้ง height ไว้ครอบคลุมแล้ว
+        fullPage: true // ต่อภาพยาวๆ ให้อัตโนมัติ
     });
 
-    console.log(`✅ Success! Screenshot is full and clean at: ${screenshotPath}`);
+    console.log(`✅ Done! Check your full image at: ${screenshotPath}`);
 });
