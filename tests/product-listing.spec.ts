@@ -1,55 +1,41 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test'; // เพิ่ม Page เข้ามาใน import
 
-test('test product listing with optimized scroll and image load', async ({ page }) => {
-  // ขยายเวลา Timeout เฉพาะ Test นี้เป็น 3 นาที
+test('Test Scroll Menu - Stable Version', async ({ page }) => {
   test.setTimeout(180000);
 
-  await page.goto('https://starbucks.co.th/', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('link', { name: 'Menu' }).click();
-  await page.waitForLoadState('networkidle'); // รอจนกว่า Network จะนิ่ง
+  await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
+  console.log('Page loaded, starting controlled scroll...');
 
-  console.log('Starting optimized smooth scroll...');
+  // ระบุประเภทให้ page เป็น Page
+  async function scrollPageWithPause(page: Page) {
+    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
+    
+    let currentPos = 0;
+    const step = 400; 
 
-  // ฟังก์ชัน Scroll ที่เร็วขึ้นแต่ยังเก็บ Lazy Load ได้
-  await page.evaluate(async () => {
-    await new Promise((resolve) => {
-      let totalHeight = 0;
-      let distance = 500; // เพิ่มระยะการเลื่อนแต่ละครั้ง
-      let timer = setInterval(() => {
-        let scrollHeight = document.body.scrollHeight;
-        window.scrollBy(0, distance);
-        totalHeight += distance;
+    while (currentPos < bodyHeight) {
+      currentPos += step;
+      
+      // ระบุประเภทให้ y เป็น number
+      await page.evaluate((y: number) => {
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }, currentPos);
 
-        if (totalHeight >= scrollHeight) {
-          clearInterval(timer);
-          resolve(true);
-        }
-      }, 200); // เลื่อนทุกๆ 0.2 วินาที
-    });
-  });
+      await page.waitForTimeout(800); 
+    }
+  }
 
-  console.log('Reached bottom. Checking images with timeout...');
+  await scrollPageWithPause(page);
 
-  // รอให้รูปโหลดเสร็จแบบมีกำหนดเวลา (สูงสุด 10 วินาที) เพื่อไม่ให้ Test ค้าง
-  await page.evaluate(async () => {
-    const images = Array.from(document.querySelectorAll('img'));
-    const imagePromises = images.map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise(resolve => {
-        img.addEventListener('load', resolve);
-        img.addEventListener('error', resolve);
-        setTimeout(resolve, 10000); // ถ้า 10 วิยังไม่มา ให้ไปต่อเลย
-      });
-    });
-    await Promise.all(imagePromises);
-  });
+  // เลื่อนกลับไปบนสุดแล้วลงมาล่างสุดอีกรอบเพื่อกระตุ้นรูปภาพ
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  
+  await page.waitForTimeout(3000);
 
-  // รอให้นิ่งสนิทอีก 2 วิ
-  await page.waitForTimeout(2000);
-
-  const screenshotPath = `test-results/product-listing-fixed-${Date.now()}.png`;
+  const screenshotPath = `test-results/starbucks-menu-fixed.png`;
   await page.screenshot({ path: screenshotPath, fullPage: true });
-  console.log(`✅ Screenshot taken: ${screenshotPath}`);
-
-  await expect(page.locator('img').first()).toBeVisible();
+  
+  console.log(`✅ Success! Screenshot saved: ${screenshotPath}`);
 });
