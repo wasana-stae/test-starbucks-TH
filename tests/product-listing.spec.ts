@@ -1,52 +1,43 @@
 import { test, expect, Page } from '@playwright/test';
 
-test('Starbucks Menu - Perfect Scroll without Resize Artifacts', async ({ page }) => {
-    // 1. เพิ่มเวลา Timeout สำหรับการโหลดรูปจำนวนมาก
+test('Starbucks Menu - Smooth End without Resize', async ({ page }) => {
+    // 1. ตั้งค่าพื้นฐาน (เพิ่ม Timeout และขนาดจอที่กว้างเพื่อไม่มีแถบเทา)
     test.setTimeout(240000);
-
-    // 2. บังคับขนาดหน้าจอมาตรฐาน 1920 เพื่อให้แสดงผลเต็มหน้า (ไม่มีแถบเทาด้านข้าง)
     await page.setViewportSize({ width: 1920, height: 1080 });
 
-    // 3. ไปที่หน้าเมนู
+    // 2. ไปที่หน้าเมนู
     await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
-    console.log('Page loaded. Starting smart scroll...');
+    console.log('Page loaded. Starting scroll...');
 
-    // 4. ฟังก์ชันการเลื่อน (คงเดิมเพราะถูกต้องแล้ว)
-    // แต่ปรับเงื่อนไขให้ไหลลื่นรอบเดียว ไม่มีการย้อนกลับไปมา
-    async function smartScroll(page: Page) {
-        const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
-        let currentPos = 0;
-        const step = 600; // เลื่อนทีละ 600px
+    // 3. ฟังก์ชันการเลื่อน (คงเดิมเพราะถูกต้องแล้ว)
+    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
+    let currentPos = 0;
+    const step = 600; 
 
-        while (currentPos < bodyHeight) {
-            currentPos += step;
-            await page.mouse.wheel(0, step); 
-            
-            // แช่รอเพื่อให้ระบบ Lazy Load เปลี่ยนภาพเทาเป็นรูปสินค้า
-            await page.waitForTimeout(1500); 
+    while (currentPos < bodyHeight) {
+        currentPos += step;
+        await page.mouse.wheel(0, step); 
+        
+        // แช่รอเพื่อให้ Lazy Load ทำงาน (ภาพสินค้าจะปรากฏแทนสีเทา)
+        await page.waitForTimeout(1500); 
 
-            // ตรวจสอบความสูงเผื่อเว็บโหลดของเพิ่ม
-            const newHeight = await page.evaluate(() => document.body.scrollHeight);
-            if (currentPos > newHeight) break;
-        }
+        // ตรวจสอบความสูงเผื่อกรณีหน้าเว็บโหลดเนื้อหาเพิ่ม
+        const dynamicHeight = await page.evaluate(() => document.body.scrollHeight);
+        if (currentPos > dynamicHeight) break;
     }
 
-    // สั่งเริ่มเลื่อนจนจบหน้า
-    await smartScroll(page);
-
-    // 5. รอ Network นิ่งสนิทครั้งสุดท้าย
+    // 4. รอ Network และ UI ครั้งสุดท้ายให้ภาพนิ่งสนิท
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000); 
 
-    // 6. --- ส่วนที่แก้ไข: ตัดการ Resize และ Scroll ซ้ำออก ---
-    // ถ่ายรูปหน้าจอแบบ Full Page ทันที
-    // การใช้ fullPage: true ตรงนี้จะทำให้ไฟล์รูปยาวสวยงาม 
-    // และวิดีโอจะตัดจบที่ตำแหน่ง Footer โดยไม่หดแว็บกลับไปมาครับ
-    const screenshotPath = `test-results/starbucks-perfect-scroll.png`;
+    // 5. --- ส่วนแก้ไข: ตัดนาทีที่ 36-41 ออก (ตัดการ Resize และ Full Page ออก) ---
+    // ถ่ายรูปเฉพาะหน้าจอปัจจุบัน (ตำแหน่ง Footer) 
+    // การตั้ง fullPage: false จะทำให้วิดีโอไม่หดแว็บ และไม่มีการเลื่อนซ้ำ
+    const screenshotPath = `test-results/starbucks-clean-end.png`;
     await page.screenshot({ 
         path: screenshotPath, 
-        fullPage: true 
+        fullPage: false // ใช้ false เพื่อวิดีโอที่นิ่งที่สุด
     });
 
-    console.log(`✅ Done! Screenshot saved at: ${screenshotPath}`);
+    console.log(`✅ Finished! Video ends smoothly at Footer without artifacts.`);
 });
