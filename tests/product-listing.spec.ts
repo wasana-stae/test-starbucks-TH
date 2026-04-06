@@ -1,50 +1,56 @@
 import { test, expect } from '@playwright/test';
 
-test('Test Scroll Menu and Load All Images - Safe Version', async ({ page }) => {
-    // 1. เพิ่มเวลา Timeout เป็น 3 นาที
-    test.setTimeout(180000);
+test('Test Scroll Menu - Human Version', async ({ page }) => {
+    test.setTimeout(240000); // เพิ่มเวลาเป็น 4 นาทีสำหรับรูปเยอะๆ
 
-    // 2. ตั้งขนาดหน้าจอให้คงที่
     await page.setViewportSize({ width: 1280, height: 1000 });
-
-    // 3. ไปที่หน้าเมนู
     await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
-    console.log('Page loaded.');
 
-    // 4. วิธีแก้การเลื่อนรวน: ใช้ Mouse Wheel (เลียนแบบการใช้นิ้วถูหรือหมุนลูกกลิ้งเมาส์)
-    // วิธีนี้จะนิ่งกว่าการสั่ง window.scrollTo เพราะมันเป็น Action ระดับ Browser
-    console.log('Scrolling down slowly with mouse wheel...');
-    for (let i = 0; i < 20; i++) {
-        await page.mouse.wheel(0, 800); // เลื่อนลงทีละ 800px
-        await page.waitForTimeout(1000); // หยุดรอ 1 วินาทีเต็มๆ ให้รูปโหลด
-    }
+    console.log('Starting Human-like scroll...');
 
-    // 5. วิธีแก้ภาพสีเทา: วนลูปเฉพาะ "กล่องสินค้า" แล้วสะกิดทีละอัน
-    console.log('Checking each product item to trigger images...');
+    // 1. ค่อยๆ ไถหน้าจอลงแบบ Random จังหวะ (เหมือนคนเลื่อนดูเมนูจริงๆ)
+    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
+    let currentPos = 0;
     
-    // หา 'div' หรือ 'section' ที่ห่อหุ้มสินค้าแต่ละตัว (มักจะได้ผลดีกว่า img ตรงๆ)
-    const productItems = page.locator('.product-item, .product-card, main img'); 
-    const count = await productItems.count();
-
-    for (let i = 0; i < count; i += 2) { // เลื่อนทีละ 2 รูปเพื่อความเร็วแต่ยังนิ่งอยู่
-        const item = productItems.nth(i);
+    while (currentPos < bodyHeight) {
+        // แรนดอมระยะเลื่อน 300 - 600px เพื่อให้ระบบ Lazy Load ตื่นตัว
+        const step = Math.floor(Math.random() * (600 - 300 + 1) + 300);
+        currentPos += step;
         
-        // เลื่อนให้มาอยู่บนหน้าจอ
-        await item.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+        await page.mouse.wheel(0, step);
         
-        // ถ้าเลื่อนมาแล้วยังไม่ขึ้น ให้ "แช่" รออีกนิด
-        await page.waitForTimeout(200); 
+        // แรนดอมเวลารอ 0.5 - 1.2 วินาที
+        const waitTime = Math.floor(Math.random() * (1200 - 500 + 1) + 500);
+        await page.waitForTimeout(waitTime);
+        
+        // อัปเดตความสูงเผื่อของโหลดเพิ่ม
+        const dynamicHeight = await page.evaluate(() => document.body.scrollHeight);
+        if (currentPos > dynamicHeight) break;
     }
 
-    // 6. เลื่อนกลับไปบนสุดแล้วลงมาล่างสุดอีกรอบแบบช้าๆ เพื่อเก็บตก
-    await page.keyboard.press('Home');
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('End');
-    await page.waitForTimeout(3000); // รอให้นิ่งสนิทจริงๆ
+    // 2. บังคับโหลดภาพที่อาจตกหล่นด้วยการสั่ง Scroll ทีละกล่อง
+    console.log('Verifying all product cards...');
+    const cards = page.locator('.product-item, .card, img[loading="lazy"]');
+    const count = await cards.count();
+    
+    // สุ่มเช็กภาพเป็นระยะๆ เพื่อประหยัดเวลาแต่ภาพมาครบ
+    for (let i = 0; i < count; i += 3) {
+        await cards.nth(i).scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+        await page.waitForTimeout(100);
+    }
 
-    // 7. ถ่ายรูปหน้าจอ
-    const screenshotPath = `test-results/starbucks-final-fix.png`;
+    // 3. ทริคสำคัญ: เลื่อนขึ้นไปนิดนึงแล้วลงไปใหม่ (สะกิด UI)
+    await page.mouse.wheel(0, -500);
+    await page.waitForTimeout(500);
+    await page.mouse.wheel(0, 500);
+
+    // 4. รอ Network และภาพนิ่งจริงๆ
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(4000); 
+
+    // 5. ถ่ายรูปหน้าจอ
+    const screenshotPath = `test-results/starbucks-final-success.png`;
     await page.screenshot({ path: screenshotPath, fullPage: true });
     
-    console.log(`✅ Finished! Screenshot saved at: ${screenshotPath}`);
+    console.log(`✅ Completed! Images should be fully loaded now.`);
 });
