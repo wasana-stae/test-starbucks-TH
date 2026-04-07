@@ -7,11 +7,11 @@ test('Starbucks Thailand - Find Store and View Map', async ({ page }) => {
   // 2. ไปที่หน้า Find a Store โดยตรง
   await page.goto('https://www.starbucks.co.th/find-a-store/', { waitUntil: 'networkidle' });
 
-  // 3. ค้นหาสาขา (ตัวอย่าง: ค้นหา 'Bangkok' หรือ 'Siam')
-  // ใช้ Locator ที่เจาะจงกับช่องค้นหาในหน้า Store Locator
-  const storeSearchInput = page.locator('input[placeholder*="Find a store"], #storeSearchInput');
+  // 3. Search for a store
+  // Using user-facing locator for better stability
+  const storeSearchInput = page.getByPlaceholder('Find a Store');
   await storeSearchInput.fill('Siam Paragon');
-  await page.keyboard.press('Enter');
+  await storeSearchInput.press('Enter');
 
   // 4. รอให้ผลลัพธ์ปรากฏและคลิกเลือกสาขาที่เจอ
   const firstStoreCard = page.locator('.store-item, [class*="storeCard"]').first();
