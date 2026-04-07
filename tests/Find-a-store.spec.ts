@@ -1,23 +1,39 @@
 import { test, expect } from '@playwright/test';
 
-test('Starbucks Thailand - Find Store and View Map', async ({ page }) => {
+test('Starbucks Thailand - Journey from Home to Find Store', async ({ page }) => {
+  // ขยาย Timeout สำหรับขั้นตอนที่อาจใช้เวลานาน
   test.setTimeout(180000);
 
-  await page.goto('https://www.starbucks.co.th/find-a-store/', { waitUntil: 'networkidle' });
+  // 1. ไปที่หน้า Home ก่อน
+  await page.goto('https://www.starbucks.co.th/', { waitUntil: 'networkidle' });
 
-  // Search
+  // 2. คลิกเมนู "Find a Store" ใน Navigation Bar
+  // ใช้ getByRole เพื่อให้ตรงตามมาตรฐาน Accessibility
+  const findStoreMenu = page.getByRole('navigation').getByRole('link', { name: 'Find a Store' });
+  await findStoreMenu.click();
+
+  // ตรวจสอบว่า URL เปลี่ยนไปหน้า find-a-store จริง
+  await expect(page).toHaveURL(/.*find-a-store/);
+
+  // 3. ค้นหาสาขา (เช่น Siam Paragon)
   const searchInput = page.getByRole('textbox', { name: 'Find a Store' });
+  
+  // แนะนำให้รอจนกว่าช่องค้นหาจะพร้อมพิมพ์
+  await searchInput.waitFor({ state: 'visible' });
   await searchInput.fill('Siam Paragon');
   await searchInput.press('Enter');
 
-  // Wait for the results to update - searching for the specific store link
-  // Note: /Siam Paragon/i is a case-insensitive regex match
+  // 4. รอผลลัพธ์ที่เกี่ยวข้องปรากฏขึ้นมา
+  // ใช้ regex /Siam Paragon/i เพื่อให้หาได้ครอบคลุม (Case-insensitive)
   const firstResult = page.getByRole('link', { name: /Siam Paragon/i }).first();
   
-  // Verify visibility and click
   await expect(firstResult).toBeVisible({ timeout: 15000 });
   await firstResult.click();
 
-  // Verify the map area updates (optional but recommended)
-  await expect(page.getByRole('region', { name: 'Map' })).toBeVisible();
+  // 5. ตรวจสอบว่าแผนที่ (Map Region) แสดงผล
+  const googleMap = page.getByRole('region', { name: 'Map' });
+  await expect(googleMap).toBeVisible({ timeout: 20000 });
+
+  // (Optional) ถ่าย Screenshot ผลลัพธ์
+  await page.screenshot({ path: 'test-results/starbucks-find-store.png', fullPage: true });
 });
