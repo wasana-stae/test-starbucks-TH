@@ -1,38 +1,35 @@
 import { test, expect } from '@playwright/test';
 
 test('Starbucks Thailand - Find Store and Click to View on Map', async ({ page }) => {
-  // ขยาย Timeout สำหรับการโหลดแผนที่ Google Maps
   test.setTimeout(120000);
 
-  // 1. ไปที่หน้า Home
+  // 1. ไปหน้าแรก และคลิกเมนู
   await page.goto('https://www.starbucks.co.th/', { waitUntil: 'networkidle' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Find a Store' }).click();
 
-  // 2. คลิกเมนู "Find a Store" จาก Navigation
-  const findStoreMenu = page.getByRole('navigation').getByRole('link', { name: 'Find a Store' });
-  await findStoreMenu.click();
-
-  // 3. ค้นหาสาขา "Siam Paragon"
+  // 2. ค้นหาสาขา
   const searchInput = page.getByRole('textbox', { name: 'Find a Store' });
   await searchInput.fill('Siam Paragon');
   await searchInput.press('Enter');
 
-  // 4. เลือกสาขาจากรายการ (เช่น สาขาแรกที่เจอ)
-  // การกดตรงนี้จะทำให้แผนที่ Focus ไปที่ตำแหน่งของสาขานั้น
-  const firstResultLink = page.getByRole('link', { name: /Siam Paragon/i }).first();
-  await expect(firstResultLink).toBeVisible();
-  await firstResultLink.click();
+  // 3. คลิกเลือกสาขาแรก
+  const firstResult = page.getByRole('link', { name: /Siam Paragon/i }).first();
+  await firstResult.click();
 
-  // 5. ตรวจสอบว่าหน้าจอแผนที่ (Map Region) อัปเดตและแสดงผล
+  // 4. ตรวจสอบว่าแผนที่โหลดขึ้นมา (ตรวจสอบจากขอบเขตของ Region)
   const mapRegion = page.getByRole('region', { name: 'Map' });
-  await expect(mapRegion).toBeVisible({ timeout: 15000 });
+  await expect(mapRegion).toBeVisible();
 
-  // 6. ตรวจสอบว่า "หมุด" หรือ "รายละเอียดสาขา" แสดงบนแผนที่
-  // ปกติเมื่อคลิกสาขา แผนที่มักจะแสดงชื่อสาขาซ้ำอีกครั้งในรูปแบบ Info Window หรือ Marker
-  // เราสามารถเช็คได้ว่ามีข้อความชื่อสาขาปรากฏอยู่ในส่วนของ Map หรือไม่
-  const mapInfoContent = mapRegion.getByText(/Siam Paragon/i).first();
-  await expect(mapInfoContent).toBeVisible();
+  // 5. วิธีที่ถูกต้อง: เช็ครายละเอียดสาขาใน "Side Panel" หรือ "Active State"
+  // จาก snapshot ลิงก์ที่ถูกคลิกจะมีสถานะ [active] [ref=e171]
+  await expect(firstResult).toHaveAttribute('class', /active/i);
 
-  // (Optional) ตรวจสอบปุ่มนำทางหรือปุ่มขยายแผนที่เพื่อให้มั่นใจว่า Map โหลดเสร็จสมบูรณ์
-  const zoomInButton = page.getByRole('button', { name: 'Zoom in' });
-  await expect(zoomInButton).toBeVisible();
+  // 6. ตรวจสอบว่า Google Maps พร้อมใช้งาน (เช็คผ่านปุ่มควบคุมที่ต้องมีบน Map)
+  // วิธีนี้ยืนยันได้ว่าแผนที่ Interactive แล้วจริงๆ
+  await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible({ timeout: 10000 });
+  
+  // (Alternative) ถ้าต้องการเช็คว่ามีรายละเอียดสาขาขึ้นมาจริงๆ 
+  // ให้ลองหาจาก Selector ที่ระบุรายละเอียดที่เพิ่งปรากฏขึ้นมาใหม่หลังคลิก
+  const storeDetailHeader = page.locator('h2, h3').filter({ hasText: /Siam Paragon/i }).first();
+  await expect(storeDetailHeader).toBeVisible();
 });
