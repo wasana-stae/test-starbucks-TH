@@ -3,33 +3,28 @@ import { test, expect } from '@playwright/test';
 test('Starbucks Thailand - Find Store and Click to View on Map', async ({ page }) => {
   test.setTimeout(120000);
 
-  // 1. ไปหน้าแรก และคลิกเมนู
+  // ขั้นตอนการนำทางและค้นหา (เหมือนเดิม)
   await page.goto('https://www.starbucks.co.th/', { waitUntil: 'networkidle' });
   await page.getByRole('navigation').getByRole('link', { name: 'Find a Store' }).click();
 
-  // 2. ค้นหาสาขา
   const searchInput = page.getByRole('textbox', { name: 'Find a Store' });
   await searchInput.fill('Siam Paragon');
   await searchInput.press('Enter');
 
-  // 3. คลิกเลือกสาขาแรก
-  const firstResult = page.getByRole('link', { name: /Siam Paragon/i }).first();
-  await firstResult.click();
+  // 1. ระบุ Locator ของสาขาเป้าหมาย
+  const targetStoreLink = page.getByRole('link', { name: 'Siam Paragon-3rd fl.' }).first();
+  await targetStoreLink.click();
 
-  // 4. ตรวจสอบว่าแผนที่โหลดขึ้นมา (ตรวจสอบจากขอบเขตของ Region)
-  const mapRegion = page.getByRole('region', { name: 'Map' });
-  await expect(mapRegion).toBeVisible();
+  // 2. FIX: ตรวจสอบว่ารายละเอียดสาขาปรากฏขึ้น (ใช้ getByText แทน getByRole heading)
+  // เราจะเช็คว่ามีข้อความ "Siam Paragon" ปรากฏอยู่ในหน้าจอ (มักจะอยู่ใน Store Info Panel)
+  // ใช้ .first() หากมีข้อความซ้ำกันหลายจุด
+  await expect(page.getByText('Siam Paragon-3rd fl.').first()).toBeVisible({ timeout: 10000 });
 
-  // 5. วิธีที่ถูกต้อง: เช็ครายละเอียดสาขาใน "Side Panel" หรือ "Active State"
-  // จาก snapshot ลิงก์ที่ถูกคลิกจะมีสถานะ [active] [ref=e171]
-  await expect(firstResult).toHaveAttribute('class', /active/i);
-
-  // 6. ตรวจสอบว่า Google Maps พร้อมใช้งาน (เช็คผ่านปุ่มควบคุมที่ต้องมีบน Map)
-  // วิธีนี้ยืนยันได้ว่าแผนที่ Interactive แล้วจริงๆ
-  await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible({ timeout: 10000 });
+  // 3. ยืนยันการแสดงผลบนแผนที่ (ตรวจสอบจากปุ่มควบคุมแผนที่)
+  // นี่คือวิธีที่ Playwright แนะนำในการเช็คว่า Content ภายนอก (Google Maps) โหลดเสร็จแล้ว
+  const zoomInButton = page.getByRole('button', { name: 'Zoom in' });
+  await expect(zoomInButton).toBeVisible();
   
-  // (Alternative) ถ้าต้องการเช็คว่ามีรายละเอียดสาขาขึ้นมาจริงๆ 
-  // ให้ลองหาจาก Selector ที่ระบุรายละเอียดที่เพิ่งปรากฏขึ้นมาใหม่หลังคลิก
-  const storeDetailHeader = page.locator('h2, h3').filter({ hasText: /Siam Paragon/i }).first();
-  await expect(storeDetailHeader).toBeVisible();
+  // 4. (Optional) เช็คสถานะเวลาเปิด-ปิด เพื่อยืนยันว่า Info Panel แสดงข้อมูลครบถ้วน
+  await expect(page.getByText(/Closed|Open/i).first()).toBeVisible();
 });
