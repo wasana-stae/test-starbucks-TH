@@ -2,14 +2,28 @@ import { test, expect } from '@playwright/test';
 
 test('Navigate to Menu - Starbucks Thailand', async ({ page }) => {
   await page.goto('https://starbucks.co.th/');
-//Given go to click menu to shearch list of product
-  await page.getByRole('link', { name: 'Menu' }).click();
+  
+  // 1. ไปที่หน้าเมนู
+  await page.getByRole('link', { name: 'Menu', exact: true }).click();
   await expect(page).toHaveURL(/menu/);
-//When click on search box and type "coffee"
-  await page.getByPlaceholder('searchbox').click();
-  await page.getByPlaceholder('searchbox').fill('coffee');
-//Then show list of product that have "coffee" in name
-  const productNames = await page.locator('.product-name').allTextContents();
-  const filteredProducts = productNames.filter(name => name.toLowerCase().includes('coffee'));
-  expect(filteredProducts.length).toBeGreaterThan(0);
+
+  // 2. ระบุช่องค้นหาและพิมพ์คำค้นหา
+  const searchInput = page.getByRole('searchbox', { name: 'Search' });
+  await searchInput.fill('coffee');
+  
+  // กด Enter เพื่อความมั่นใจว่าระบบ Search ทำงาน
+  await searchInput.press('Enter');
+
+  // 3. ตรวจสอบผลลัพธ์
+  // จาก Snapshot สินค้าจะอยู่ในรูปของ Link ที่มีชื่อสินค้า
+  // เราจะหาทุกลิงก์ที่อยู่ในส่วนของเมนูสินค้า
+  const products = page.locator('main >> role=link');
+  
+  // ใช้ Web-first Assertions (expect.toCount) 
+  // ระบบจะรอ (Retry) จนกว่าสินค้าจะปรากฏขึ้นมาเองโดยไม่ต้อง waitForTimeout
+  await expect(products.filter({ hasText: /coffee/i }).first()).toBeVisible();
+  
+  // ตรวจสอบว่ามีจำนวนสินค้าที่ค้นพบมากกว่า 0
+  const count = await products.filter({ hasText: /coffee/i }).count();
+  expect(count).toBeGreaterThan(0);
 });
