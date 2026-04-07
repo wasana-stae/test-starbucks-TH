@@ -1,34 +1,37 @@
 import { test, expect } from '@playwright/test';
 
-test('Starbucks Menu - Fix Gray Images and Search', async ({ page }) => {
-  test.setTimeout(180000); // ขยายเวลาเป็น 3 นาที
+test('Navigate to Menu and Search - Accurate Report', async ({ page }) => {
+  test.setTimeout(120000);
 
-  // 1. ตั้งขนาดหน้าจอมาตรฐาน 1280x800
-  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
 
-  // 2. วิธีแก้ภาพสีเทา: ค่อยๆ เลื่อนลงและ "หยุดแช่"
-  console.log('Scrolling to trigger all images...');
-  const scrollSteps = 15; 
-  for (let i = 0; i < scrollSteps; i++) {
-    await page.mouse.wheel(0, 800); // เลื่อนลงทีละช่วง
-    
-    // สำคัญมาก: หยุดรอ 2 วินาทีเพื่อให้รูปเปลี่ยนจากสีเทาเป็นรูปจริง
-    await page.waitForTimeout(2000); 
-  }
-
-  // 3. เริ่มขั้นตอนการค้นหา
+  // 1. ระบุช่องค้นหาและพิมพ์คำว่า coffee
   const searchInput = page.getByRole('searchbox', { name: 'Search' });
   await searchInput.fill('coffee');
   await searchInput.press('Enter');
 
-  // 4. รอผลลัพธ์การค้นหา
-  await page.waitForTimeout(2000);
+  // 2. --- จุดสำคัญ: รอให้ UI อัปเดตผลลัพธ์ ---
+  // เราจะรอให้สินค้าตัวแรกที่มีคำว่า Coffee ปรากฏขึ้นมาก่อน
+  // วิธีนี้จะช่วยให้มั่นใจว่าระบบ Search ทำงานเสร็จแล้วก่อนเก็บข้อมูล
+  const productLinks = page.locator('main a[href*="/product/"]');
+  await expect(productLinks.filter({ hasText: /coffee/i }).first()).toBeVisible({ timeout: 10000 });
 
-  // 5. ถ่ายรูปหน้าจอแบบ Full Page
-  // หมายเหตุ: จังหวะนี้วิดีโออาจจะมีการกระตุกเล็กน้อยเพราะ Playwright กำลังต่อภาพ
-  const screenshotPath = `test-results/starbucks-search-result.png`;
-  await page.screenshot({ path: screenshotPath, fullPage: true });
+  // 3. เก็บข้อมูลชื่อสินค้าทั้งหมดที่แสดงอยู่บนหน้าจอ ณ ตอนนั้น
+  // ปรับ Selector ให้ดึงจาก text ภายในลิงก์สินค้าโดยตรง
+  const allProductsOnPage = await productLinks.allInnerTexts();
+  
+  // 4. กรองข้อมูลเฉพาะตัวที่มีคำว่า "coffee" (Case-insensitive)
+  const filteredReport = allProductsOnPage.filter(name => 
+    name.toLowerCase().includes('coffee')
+  );
 
-  console.log(`✅ Success! Please check the image: ${screenshotPath}`);
+  // 5. แสดงผล Report ใน Console เพื่อตรวจสอบ
+  console.log(`Found ${filteredReport.length} products matching "coffee"`);
+  console.log('Product List:', filteredReport);
+
+  // 6. Assertion เพื่อให้เทสผ่าน/ตก ตามจริง
+  expect(filteredReport.length).toBeGreaterThan(0);
+
+  // 7. ถ่ายรูปยืนยัน
+  await page.screenshot({ path: 'test-results/search-report.png', fullPage: true });
 });
