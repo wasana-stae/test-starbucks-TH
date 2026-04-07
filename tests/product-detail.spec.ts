@@ -1,39 +1,52 @@
 import { test, expect } from '@playwright/test';
 
-test('Product Detail - Accurate Report', async ({ page }) => {
-  test.setTimeout(120000);
+test('Starbucks Flow - Search and Smooth Detail View', async ({ page }) => {
+  test.setTimeout(180000); // เผื่อเวลาสำหรับการเลื่อนหน้าจอ
 
-  // 1. ไปหน้าเมนู
+  // 1. ไปหน้าเมนูและค้นหาสินค้า
   await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
+  const searchInput = page.getByRole('searchbox', { name: 'Search' });
+  await searchInput.fill('coffee');
+  await searchInput.press('Enter');
 
-  // 2. ระบุลิงก์สินค้าตัวแรก
-  const firstProductLink = page.locator('main a[href*="/product/"]').first();
-  await expect(firstProductLink).toBeVisible();
+  // 2. รอผลลัพธ์รายการสินค้า และเลือกสินค้าตัวแรก
+  const productLink = page.locator('main a[href*="/product/"]').first();
+  await expect(productLink).toBeVisible({ timeout: 10000 });
+  
+  // เก็บชื่อไว้เช็ค และดึง URL เพื่อ Navigate ตรงๆ (เสถียรกว่าการคลิกผ่าน Overlay)
+  const productUrl = await productLink.getAttribute('href');
+  if (!productUrl) throw new Error('Product URL not found');
+  await page.goto(productUrl, { waitUntil: 'networkidle' });
 
-  // 3. แก้ไขจุดที่พัง: แทนที่จะคลิก (ซึ่งถูกบดบัง) ให้ดึง URL มาเปิดตรงๆ
-  const productUrl = await firstProductLink.getAttribute('href');
-  if (productUrl) {
-    await page.goto(productUrl, { waitUntil: 'networkidle' });
-  } else {
-    throw new Error('Could not find product URL');
+  // 3. เริ่มขั้นตอนการเลื่อนหน้าจอทีละนิด (ตั้งแต่ Header ถึง Footer)
+  // วิธีนี้จะช่วยกระตุ้น Lazy Loading ให้รูปภาพแสดงผล ไม่เป็นสีเทา
+  console.log('Scrolling through product details...');
+  
+  // ตั้งค่าขนาดหน้าจอให้เต็มมาตรฐาน
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  // เลื่อนลงทีละ 400px และหยุดรอเพื่อให้ Render รูปภาพและ Section ต่างๆ
+  const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+  for (let i = 0; i < scrollHeight; i += 400) {
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(800); // รอให้ Content/รูปภาพ โหลดตามทัน
   }
 
-  // 4. รอให้ชื่อสินค้าในหน้า Detail ปรากฏ (ใช้ Selector ที่ครอบคลุม)
-  const productTitle = page.locator('h1, .product_title');
-  await expect(productTitle).toBeVisible({ timeout: 20000 });
-
-  // 5. เก็บข้อมูล
-  const titleText = await productTitle.innerText();
+  // 4. Assertion & Report
+  const productTitle = page.locator('h1');
+  await expect(productTitle).toBeVisible();
   
-  // ปรับการหา Description ให้ยืดหยุ่น (หา p ภายใน container หลักของ Detail)
-  const descriptionLocator = page.locator('h1 + div p, .product-details p');
-  const descriptionTexts = await descriptionLocator.allInnerTexts();
-  const fullDescription = descriptionTexts.join(' ').trim();
+  const titleText = await productTitle.innerText();
+  const descriptionTexts = await page.locator('h1 + div p, .product-details p').allInnerTexts();
+  
+  console.log('--- Product Detail Report ---');
+  console.log(`Title: ${titleText}`);
+  console.log(`Description: ${descriptionTexts.join(' ')}`);
 
-  // 6. Report & Assertion
-  console.log(`Product Title: ${titleText}`);
-  console.log(`Description: ${fullDescription}`);
-
-  expect(titleText.length).toBeGreaterThan(0);
-  await page.screenshot({ path: 'test-results/product-detail-report.png', fullPage: true });
+  // 5. ถ่ายรูปหน้าจอแบบเต็มหน้าจอ (Full Page) เพื่อดูทุก Section
+  // รูปภาพที่ได้จะเห็นตั้งแต่ Header, Body สินค้า จนถึง Footer
+  await page.screenshot({ 
+    path: `test-results/detail-${Date.now()}.png`, 
+    fullPage: true 
+  });
 });
