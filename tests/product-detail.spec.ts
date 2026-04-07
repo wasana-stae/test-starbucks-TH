@@ -3,33 +3,27 @@ import { test, expect } from '@playwright/test';
 test('Product Detail - Accurate Report', async ({ page }) => {
   test.setTimeout(120000);
 
-  await page.goto('https://starbucks.co.th/product/starbucks-via-iced-coffee', { waitUntil: 'networkidle' });
+  // given: ไปที่หน้ารายละเอียดสินค้าตัวแรกในเมนู
+  await page.goto('https://starbucks.co.th/menu/', { waitUntil: 'networkidle' });
+  const firstProductLink = page.locator('main a[href*="/product/"]').first();
+  await firstProductLink.click();
 
-  // 1. ระบุชื่อสินค้า (H1)
-  const productName = page.locator('h1');
-  await expect(productName).toBeVisible({ timeout: 15000 });
+  // when: รอให้หน้ารายละเอียดโหลดและแสดงข้อมูลครบถ้วน
+  const productTitle = page.locator('h1'); // สมมติว่าชื่อสินค้าจะอยู่ใน h1
+  await expect(productTitle).toBeVisible({ timeout: 10000 });
 
-  // 2. ระบุรายละเอียดสินค้า
-  // จาก Snapshot: รายละเอียดอยู่ถัดจาก H1 ภายใน container (ref=e57) 
-  // เราจะหา paragraph ทั้งหมดที่เกี่ยวข้อง
-  const descriptionContainer = page.locator('h1 + div p, .product-details p'); 
-  
-  // 3. ตรวจสอบว่ารายละเอียดต้องปรากฏอย่างน้อย 1 ย่อหน้า
-  await expect(descriptionContainer.first()).toBeVisible();
+  // then: เก็บข้อมูลชื่อสินค้าและรายละเอียดอื่นๆ ที่สำคัญ
+  const titleText = await productTitle.innerText();
+  const description = await page.locator('.product-description').innerText(); // สมมติว่าคำอธิบายอยู่ในคลาสนี้
 
-  // 4. ดึงข้อมูลมาทำ Report
-  const nameText = await productName.innerText();
-  // รวบรวมข้อความจากทุกย่อหน้ามาต่อกัน
-  const descriptionTexts = await descriptionContainer.allInnerTexts();
-  const fullDescription = descriptionTexts.join('\n').trim();
+  // แสดงผล Report ใน Console เพื่อตรวจสอบ
+  console.log(`Product Title: ${titleText}`);
+  console.log(`Description: ${description}`);
 
-  console.log('--- Product Report ---');
-  console.log('Name:', nameText);
-  console.log('Description:', fullDescription);
+  // Assertion เพื่อให้เทสผ่าน/ตก ตามจริง
+  expect(titleText.length).toBeGreaterThan(0);
+  expect(description.length).toBeGreaterThan(0);
 
-  // 5. Assertion
-  expect(nameText.length).toBeGreaterThan(0);
-  expect(fullDescription.length).toBeGreaterThan(0);
-  
+  // ถ่ายรูปยืนยัน
   await page.screenshot({ path: 'test-results/product-detail-success.png', fullPage: true });
 });
