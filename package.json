@@ -1,0 +1,27 @@
+{
+  "name": "test-starbucks-th",
+  "version": "1.0.0",
+  "description": "playwright-test",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wasana-stae/test-starbucks-TH.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/wasana-stae/test-starbucks-TH/issues"
+  },
+  "homepage": "https://github.com/wasana-stae/test-starbucks-TH#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
